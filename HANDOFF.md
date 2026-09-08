@@ -8,7 +8,7 @@ _Last updated: 2026-09-08_
 
 ## Current state
 
-The page reflects the latest ("v4") spec. `npm run dev` runs clean; every major change in this pass was verified live in-browser (see Key decisions for exactly what was tested). Section by section:
+The page reflects the latest ("v4") spec. `npm run dev` runs clean; every major change in this pass was verified live in-browser (see Key decisions for exactly what was tested). **Everything is committed and pushed**: `main` is up to date with `origin/main` (`https://github.com/darshmode/darshmo`) at commit `18e4827`, working tree clean. Section by section:
 
 1. **Header** (`Header.tsx`): sticky, transparent MODE logo top-left, 3 nav tabs (Testimonials / Results / Transformations) in white, sized up (`text-lg sm:text-xl`) to better match the logo's visual weight. "Book a Call" is a plain Next.js `Link` to `/book` (no modal, no external link).
 2. **Hero** (`Hero.tsx`): full-bleed video fills the entire viewport (`h-[100svh]`) as the background, `object-cover`. Headline "Doing all the right things, but still not seeing your body change?" and subhead sit in a bottom gradient-overlay block, centered, with the CTA. Mute toggle top-right. CTA uses a one-off amber color (`variant="amber"` on `CtaButton`, `#E8862B`/`#D1751F` hover) distinct from the site's white accent used everywhere else.
@@ -78,7 +78,6 @@ darshmo/
 
 ## Open TODOs / known issues
 
-- **Nothing committed yet.** All work across every session (v2 through this v4 pass) is still uncommitted on top of commit `f5e319d`. `public/` totals well over 100MB across many files; each individual file is still under GitHub's 100MB cap, but this should be committed and pushed in reasonably-sized chunks if that hasn't been considered yet.
 - **A handful of orphaned asset files remain on disk, never referenced in `src/`**: `public/darsh.jpg`, `public/before-darshmode.jpg`, `public/logo-mode.png`, `public/logo-text.webp`, `public/logo.webp`. Awaiting a delete decision from the user (asked previously, not yet answered).
 - **Test data exists in both the Tally dashboard and as an actual Tally form response** (a couple of submissions from this session, e.g. "Test Submission (embed check)" / `sitetest@example.com`), created while verifying the booking flow end to end. The user may want to delete these from their Tally dashboard.
 - **Node/npm environment**: Node 24 LTS via `nvm` (`~/.nvm`), no system Node, no Homebrew.
