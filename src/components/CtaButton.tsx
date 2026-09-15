@@ -51,7 +51,7 @@ export function TrustBadges({ className = "" }: { className?: string }) {
 export default function CtaButton({
   label = "Book a Free Call",
   className = "",
-  variant = "default",
+  variant = "amber",
 }: {
   label?: string;
   className?: string;

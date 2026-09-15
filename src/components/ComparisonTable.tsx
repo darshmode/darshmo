@@ -24,13 +24,13 @@ const rows: { label: string; app: Cell; coach: Cell; mode: Cell }[] = [
   {
     label: "Form checked and corrected",
     app: false,
-    coach: "Rare",
+    coach: true,
     mode: true,
   },
   {
     label: "Weekly check-ins with ongoing accountability",
     app: false,
-    coach: "Occasional",
+    coach: true,
     mode: true,
   },
   {
@@ -54,9 +54,9 @@ function Cell({ value, emphasis = false }: { value: Cell; emphasis?: boolean }) 
     );
   }
   return value ? (
-    <span className={`text-lg leading-none ${emphasis ? "text-accent" : "text-fg"}`}>&#10003;</span>
+    <span className={`text-3xl leading-none ${emphasis ? "text-accent" : "text-fg"}`}>&#10003;</span>
   ) : (
-    <span className="text-muted text-lg leading-none">&#10007;</span>
+    <span className="text-muted text-3xl leading-none">&#10007;</span>
   );
 }
 
@@ -72,7 +72,9 @@ export default function ComparisonTable() {
           PT that was so rigid, and so expensive you couldn&rsquo;t justify it over time. Here&rsquo;s
           what&rsquo;s actually different.
         </p>
-        {/* Desktop: full table. Mobile: stacked cards, no horizontal scroll. */}
+        {/* Desktop/tablet: live table. Mobile: a static image of the same table so the full
+            side-by-side comparison stays visible with no horizontal scroll. That image isn't
+            selectable text or screen-reader accessible; accepted tradeoff, not an oversight. */}
         <div className="hidden sm:block">
           <table className="w-full border-collapse text-left">
             <thead>
@@ -102,27 +104,11 @@ export default function ComparisonTable() {
           </table>
         </div>
 
-        <div className="sm:hidden space-y-4">
-          {rows.map((r) => (
-            <div key={r.label} className="rounded-xl border border-edge overflow-hidden">
-              <div className="font-body text-sm text-fg font-medium px-4 py-3 bg-surface/60">{r.label}</div>
-              <div className="divide-y divide-edge">
-                <div className="flex items-center justify-between px-4 py-3">
-                  <span className="font-heading text-xs tracking-wide text-muted">CHEAP APP</span>
-                  <Cell value={r.app} />
-                </div>
-                <div className="flex items-center justify-between px-4 py-3">
-                  <span className="font-heading text-xs tracking-wide text-muted">GENERIC ONLINE COACH</span>
-                  <Cell value={r.coach} />
-                </div>
-                <div className="flex items-center justify-between px-4 py-3 bg-surface/60">
-                  <span className="font-heading text-xs tracking-wide text-accent">MODE</span>
-                  <Cell value={r.mode} emphasis />
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+        <img
+          src="/comparison-table.png"
+          alt="Comparison table: Why MODE beats a cheap app or a generic online coach, across weak-link assessment, mobility work, personalized nutrition, form checks, weekly accountability, habit-building, and investment. MODE offers all of it; a cheap app offers none of it; a generic coach offers form checks and weekly check-ins but nothing else."
+          className="sm:hidden w-full rounded-xl border border-edge"
+        />
       </div>
     </Section>
   );
