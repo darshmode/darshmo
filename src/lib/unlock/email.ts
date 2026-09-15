@@ -7,8 +7,37 @@ import { UNLOCK_EMAIL_TEMPLATE } from "./emailTemplate";
  */
 
 const BREVO_SEND_ENDPOINT = "https://api.brevo.com/v3/smtp/email";
+const BREVO_CONTACTS_ENDPOINT = "https://api.brevo.com/v3/contacts";
 const SENDER_NAME = "Darsh from MODE";
 const SENDER_EMAIL = "darsh@mail.darshmode.com";
+const RECIPES_LIST_ID = 6;
+
+/**
+ * Adds/updates the recipient as a Brevo contact on the recipes lead magnet
+ * list. updateEnabled: true is required, without it Brevo throws a
+ * duplicate-contact error whenever someone re-enters an email they've
+ * already used (e.g. "get my link again"), instead of updating them.
+ */
+async function upsertBrevoContact(apiKey: string, email: string): Promise<void> {
+  const response = await fetch(BREVO_CONTACTS_ENDPOINT, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      "api-key": apiKey,
+    },
+    body: JSON.stringify({
+      email,
+      listIds: [RECIPES_LIST_ID],
+      updateEnabled: true,
+    }),
+  });
+
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throw new Error(`Brevo contact upsert failed (${response.status}): ${detail}`);
+  }
+}
 
 export async function sendAccessEmail(email: string, token: string): Promise<void> {
   const apiKey = process.env.BREVO_API_KEY;
@@ -39,4 +68,6 @@ export async function sendAccessEmail(email: string, token: string): Promise<voi
     const detail = await response.text().catch(() => "");
     throw new Error(`Brevo send failed (${response.status}): ${detail}`);
   }
+
+  await upsertBrevoContact(apiKey, email);
 }
