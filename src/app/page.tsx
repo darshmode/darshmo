@@ -41,12 +41,12 @@ export default function Home() {
       <WhoForNotFor />
       <Testimonials />
       <PullUpProgression />
+      <ComparisonTable />
       <WhatsAppTestimonials heading="See what my students are saying" screenshots={whatsappShotsBatch1} />
       <YourStory />
       <ResultsGallery id="results" heading="Real Results" people={resultsGridA} />
       <WhatsAppTestimonials heading="More from my students" screenshots={whatsappShotsBatch2} />
       <ResultsGallery people={resultsGridB} />
-      <ComparisonTable />
       <div className="py-16 md:py-24 flex justify-center">
         <CtaButton label="Book a Free Discovery Call" variant="amber" />
       </div>
