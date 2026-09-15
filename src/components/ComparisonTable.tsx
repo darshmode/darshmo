@@ -72,8 +72,9 @@ export default function ComparisonTable() {
           PT that was so rigid, and so expensive you couldn&rsquo;t justify it over time. Here&rsquo;s
           what&rsquo;s actually different.
         </p>
-        <div className="overflow-x-auto -mx-6 px-6 sm:mx-0 sm:px-0">
-          <table className="w-full min-w-[640px] border-collapse text-left">
+        {/* Desktop: full table. Mobile: stacked cards, no horizontal scroll. */}
+        <div className="hidden sm:block">
+          <table className="w-full border-collapse text-left">
             <thead>
               <tr className="border border-edge">
                 <th className="font-heading text-xs tracking-wide text-muted py-4 px-4 w-1/4 border border-edge">WHAT MATTERS</th>
@@ -99,6 +100,28 @@ export default function ComparisonTable() {
               ))}
             </tbody>
           </table>
+        </div>
+
+        <div className="sm:hidden space-y-4">
+          {rows.map((r) => (
+            <div key={r.label} className="rounded-xl border border-edge overflow-hidden">
+              <div className="font-body text-sm text-fg font-medium px-4 py-3 bg-surface/60">{r.label}</div>
+              <div className="divide-y divide-edge">
+                <div className="flex items-center justify-between px-4 py-3">
+                  <span className="font-heading text-xs tracking-wide text-muted">CHEAP APP</span>
+                  <Cell value={r.app} />
+                </div>
+                <div className="flex items-center justify-between px-4 py-3">
+                  <span className="font-heading text-xs tracking-wide text-muted">GENERIC ONLINE COACH</span>
+                  <Cell value={r.coach} />
+                </div>
+                <div className="flex items-center justify-between px-4 py-3 bg-surface/60">
+                  <span className="font-heading text-xs tracking-wide text-accent">MODE</span>
+                  <Cell value={r.mode} emphasis />
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </Section>

@@ -5,6 +5,7 @@ const navLinks = [
   { href: "#testimonials", label: "Testimonials" },
   { href: "#results", label: "Results" },
   { href: "#pullups", label: "Transformations" },
+  { href: "/recipes", label: "Recipes" },
 ];
 
 export default function Header() {
@@ -35,7 +36,7 @@ export default function Header() {
         </div>
         <Link
           href="/book"
-          className="font-heading text-xs sm:text-sm tracking-wide bg-accent hover:bg-accent-dim text-bg px-4 py-2 rounded-lg transition-colors duration-150"
+          className="font-heading text-xs sm:text-sm tracking-wide bg-[#E8862B] hover:bg-[#D1751F] text-white px-4 py-2 rounded-lg transition-colors duration-150"
         >
           Book a Call
         </Link>

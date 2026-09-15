@@ -1,7 +1,37 @@
-import Section from "./Section";
-import { SocialProofShot, type Shot } from "./SocialProofShot";
+import type { Shot } from "@/components/SocialProofShot";
 
-const screenshots: Shot[] = [
+export const whatsappShotsBatch1: Shot[] = [
+  {
+    file: "rochelle.png",
+    width: 1320,
+    height: 1450,
+    rotate: "-rotate-2",
+    highlight: { top: 54, left: 5, width: 75, height: 19 },
+  },
+  {
+    file: "vish_1.png",
+    width: 1320,
+    height: 928,
+    rotate: "rotate-1",
+    highlight: { top: 61, left: 4, width: 74, height: 13 },
+  },
+  {
+    file: "james_1.png",
+    width: 1311,
+    height: 967,
+    rotate: "-rotate-1",
+    highlight: { top: 41, left: 5, width: 71, height: 25 },
+  },
+  {
+    file: "kapil.png",
+    width: 1320,
+    height: 1281,
+    rotate: "rotate-2",
+    highlight: { top: 35, left: 4, width: 72, height: 17 },
+  },
+];
+
+export const whatsappShotsBatch2: Shot[] = [
   {
     file: "umesh_1.png",
     width: 1307,
@@ -38,17 +68,3 @@ const screenshots: Shot[] = [
     highlight: { top: 64, left: 1, width: 74, height: 19 },
   },
 ];
-
-export default function SocialProofBlock() {
-  return (
-    <Section className="bg-surface/40">
-      <div className="max-w-5xl mx-auto px-6">
-        <div className="flex flex-wrap items-start justify-center gap-8">
-          {screenshots.map((s) => (
-            <SocialProofShot key={s.file} shot={s} size="w-64 sm:w-72 md:w-80" />
-          ))}
-        </div>
-      </div>
-    </Section>
-  );
-}

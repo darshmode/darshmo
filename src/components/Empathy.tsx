@@ -1,16 +1,15 @@
 import Section from "./Section";
 
 const lines = [
-  "You've been slaving it out. Work, patients, kids, the food you were raised to never waste.",
-  "And somewhere in the middle of all that, your body just started falling apart.",
-  "Athletic to pathetic. That's what it feels like.",
-  "Maybe you've plan-hopped. Tried the rigid meal plans that ignored how you actually live. Paid for the coach who forgot your name by month three.",
-  "Or maybe you already know how to train. You know your macros. You still can't explain why none of it stuck.",
-  "That knee, that shoulder, that ache in your lower back, you've just learned to work around it, telling yourself it's not a priority.",
-  "No matter how many times you say no, it ends up on your plate anyway.",
-  "Your doctor told you to just lose it, like it was that simple, like carrying it wasn't already like carrying a backpack you never agreed to wear.",
-  "You're not looking for another rigid plan or another three-month contract.",
-  "You're looking for the last one.",
+  "You still remember when being fit was just… you.",
+  "Then life got busy. Work, patients, kids, family, the food you were raised to never waste.",
+  "And somewhere along the way, you caught yourself in the mirror and thought, \"How the fuck did I get here?\"",
+  "You've tried to sort it out. New program. New diet. \"Right, Monday. I'm locking in this time.\"",
+  "The frustrating part? You know what to do. You know how to train. You know your macros. So why can't you make it stick anymore?",
+  "That knee you keep saying will sort itself out. The shoulder you've learned to work around. The lower back that's \"just tight.\"",
+  "Because deep down, you know you've still got it in you.",
+  "You want to look good again. Feel strong. Move without something always hurting.",
+  "And this time, you want it to last.",
 ];
 
 export default function Empathy() {
