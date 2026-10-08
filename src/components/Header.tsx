@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 const navLinks = [
   { href: "#testimonials", label: "Testimonials" },
@@ -11,15 +12,21 @@ const navLinks = [
   { href: "/recipes", label: "Recipes" },
 ];
 
-export default function Header() {
+export default function Header({ showBookButton = true }: { showBookButton?: boolean }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const pathname = usePathname();
+
+  // The nav's in-page anchors only have somewhere to scroll to on the
+  // homepage, so off it they point back at the homepage's sections instead.
+  const onHome = pathname === "/";
+  const resolve = (href: string) => (onHome || !href.startsWith("#") ? href : `/${href}`);
 
   return (
     <>
       <header className="sticky top-0 z-50 bg-bg/80 backdrop-blur border-b border-edge">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
         <div className="flex items-center gap-8">
-          <a href="#" className="shrink-0">
+          <a href={onHome ? "#" : "/"} className="shrink-0">
             <Image
               src="/darshmode-logo-transparent.png"
               alt="MODE"
@@ -32,7 +39,7 @@ export default function Header() {
             {navLinks.map((l) => (
               <a
                 key={l.href}
-                href={l.href}
+                href={resolve(l.href)}
                 className="font-heading text-lg sm:text-xl tracking-wide text-white hover:text-accent-dim transition-colors"
               >
                 {l.label}
@@ -51,12 +58,14 @@ export default function Header() {
               <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
             </svg>
           </button>
-          <Link
-            href="/book"
-            className="font-heading text-xs sm:text-sm tracking-wide bg-[#E8862B] hover:bg-[#D1751F] text-white px-4 py-2 rounded-lg transition-colors duration-150"
-          >
-            Book a Call
-          </Link>
+          {showBookButton && (
+            <Link
+              href="/book"
+              className="font-heading text-xs sm:text-sm tracking-wide bg-[#E8862B] hover:bg-[#D1751F] text-white px-4 py-2 rounded-lg transition-colors duration-150"
+            >
+              Book a Call
+            </Link>
+          )}
         </div>
       </div>
     </header>
@@ -79,7 +88,7 @@ export default function Header() {
               {navLinks.map((l) => (
                 <a
                   key={l.href}
-                  href={l.href}
+                  href={resolve(l.href)}
                   onClick={() => setMenuOpen(false)}
                   className="font-heading text-xl tracking-wide text-white hover:text-accent-dim transition-colors py-3 border-b border-edge last:border-b-0"
                 >
