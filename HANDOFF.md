@@ -17,7 +17,7 @@ Deployed on Vercel (darshmode.com), auto-deploys from `origin/main` (`github.com
 ### 1. Vercel Web Analytics (new)
 `@vercel/analytics@2.0.1` added as a dependency, `<Analytics />` imported from `@vercel/analytics/next` and mounted in `<body>` in `src/app/layout.tsx`. Code side is done; Web Analytics still has to be switched on in the Vercel dashboard before any data flows.
 
-### 2. Brevo `ACCESS_LINK` attribute (fixed)
+### 2. Brevo `ACCESS_LINK` attribute (fixed, verified in production)
 `src/lib/unlock/email.ts` now writes each signup's personal access link to the Brevo contact attribute `ACCESS_LINK` (text), in the same `createContact` call that adds them to list 6 ("Recipe Lead Magnet"), with `updateEnabled: true`.
 
 Two genuine bugs were found and fixed here:
@@ -25,6 +25,8 @@ Two genuine bugs were found and fixed here:
 - The upsert previously ran **after** the transactional email send. It now runs first, so the attribute can never be written after the automation has already been triggered by the list join.
 
 Both signup entry points (the `/recipes` `UnlockGate` and the homepage `LeadMagnetPopup`) share one code path, verified: `useUnlock().submitEmail` -> `/api/unlock` (or `/api/unlock/resend`) -> `issueAndSendAccess()` -> `sendAccessEmail()`. Fixing `email.ts` covers both.
+
+Verified live on 2026-10-08 after deploy: a real signup through `https://www.darshmode.com/api/unlock` returned `emailSent: true`, the Brevo contact came back on list 6 with a populated `ACCESS_LINK`, and the exact link stored in that attribute validates against the live `/api/unlock/verify` endpoint. The whole chain works in production.
 
 ### 3. Welcome email copy (replaced)
 `src/lib/unlock/emailTemplate.ts` no longer holds placeholder copy. It now has Darsh's real wording: subject "Your recipes are in", hidden preheader "Plus why I bothered making them", short plain paragraphs, "Open my recipes" linking to the recipient's access link, and a P.S. with "Book a free call" linking to `https://www.darshmode.com/book`. Both `bodyHtml` and `bodyText` are kept in sync.
@@ -126,8 +128,7 @@ Header -> Hero -> Empathy -> WhoForNotFor -> Testimonials (Riley/Francy videos) 
 - **Web Analytics has to be enabled in the Vercel dashboard** (Project -> Analytics -> Enable). The component is mounted but inert until then, and it never reports from localhost.
 - **Confirm `darsh@darshmode.com` actually receives mail.** The new email copy asks people to hit reply. If that mailbox does not exist, replies bounce silently.
 - ~~Confirm the Brevo attribute is named exactly `ACCESS_LINK` and typed as text.~~ Done, verified against the live Brevo API on 2026-10-08.
-- **The 5 pre-existing list-6 contacts will never get an `ACCESS_LINK`, by decision.** Darsh chose on 2026-10-08 to skip the backfill rather than reconcile the secret or re-email them. Practical consequence: those 5 (including 2 who signed up on 7th and 8th October and are mid-automation) will receive automation emails with a blank link unless they re-submit their email through the site, which regenerates everything correctly. Everyone who signs up from this deploy onward is unaffected. If this is revisited, see the `UNLOCK_SECRET` note under Useful references first: a local backfill is impossible until the Vercel secret is copied into `.env.local`.
-- **The live Brevo call was never exercised.** Testing it means a real signup. Worth one real submission through the homepage popup after deploy, then checking the contact in Brevo shows a populated `ACCESS_LINK`.
+- **4 pre-existing list-6 contacts will never get an `ACCESS_LINK`, by decision.** Darsh chose on 2026-10-08 to skip the backfill rather than reconcile the secret or re-email them. Practical consequence: those 4 (including 2 who signed up on 7th and 8th October and are mid-automation) will receive automation emails with a blank link unless they re-submit their email through the site, which regenerates everything correctly. The 5th, Darsh's own address, was populated as a side effect of the post-deploy verification signup. Everyone who signs up from this deploy onward is unaffected. If this is revisited, see the `UNLOCK_SECRET` note under Useful references first: a local backfill is impossible until the Vercel secret is copied into `.env.local`.
 
 **Pre-existing, lower priority:**
 - `public/videos/hero.mp4` (old V2) is unused dead weight, kept deliberately as a rollback option. Safe to delete once V3 is confirmed good live.
