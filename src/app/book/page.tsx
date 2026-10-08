@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
+import { currentSearch, withSearch } from "@/lib/tracking";
 
 const TALLY_FORM_ID = "81BMPo";
 
@@ -53,7 +54,8 @@ export default function BookPage() {
         }
       }
       if (data?.event === "Tally.FormSubmitted") {
-        router.push("/schedule");
+        // Carry any tracking params on to Calendly and, after that, /booked.
+        router.push(withSearch("/schedule", currentSearch()));
       }
     }
     window.addEventListener("message", handleMessage);
