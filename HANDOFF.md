@@ -38,8 +38,17 @@ Post-booking confirmation page at `src/app/booked/page.tsx` with a 9:16 video pl
 
 Source video was `POST SIGN UP VIDEO_MODE.mp4`, HEVC 1080x1920 30fps, 76MB. Transcoded to H.264 and published at `public/videos/post-sign-up-video.mp4`, **18MB**, still full 1080x1920, with `+faststart`. First frame extracted to `public/videos/posters/post-sign-up-video.jpg` as the poster. Original source file untouched.
 
+### 5. Auto-redirect to `/booked` after a Calendly booking (new)
+Calendly's free plan has no redirect-after-booking setting, so `/schedule` listens for the inline embed's `calendly.event_scheduled` `postMessage` event and routes to `/booked` itself. Guarded by an exact origin check (`https://calendly.com`) and a one-shot ref, so a repeated event cannot navigate twice.
+
+Tracking params now survive the whole funnel. Every client-side hop was silently dropping the query string, so `/book` forwards it to `/schedule` and `/schedule` forwards it to `/booked`, via `src/lib/tracking.ts`. The entire query string is carried rather than a key allowlist, so `utm_*`, `gclid`, `fbclid` and anything added later all work with no code change. `utm_*` values are additionally mapped onto Calendly's embed API so bookings are attributed inside Calendly too. `tracking.ts` has unit-tested pure helpers (11 cases, run ad hoc, not committed as a suite since the repo has no test runner).
+
+The Calendly embed also got more height on mobile (`h-[1050px] sm:h-[700px]`), where it lays out vertically and 700px forced scrolling inside the iframe.
+
 ## Key decisions
 
+- **The Calendly redirect listener lives on `/schedule`, not `/book`.** The brief asked for Calendly to be embedded inline on `/book`, but that premise was out of date: `/book` is the Tally application form and `/schedule` already had the official inline Calendly embed, with no page anywhere linking out to calendly.com. Moving Calendly onto `/book` would have deleted the application/qualification step, so the listener was added where Calendly actually is and the two-step funnel was left intact. Flagged to Darsh on 2026-10-08. If he ever does want one-step booking, that is a deliberate funnel change, not a bug fix.
+- **The whole query string is forwarded through the funnel, not an allowlist of keys.** Cheaper to reason about and it cannot silently drop a tracking param someone adds later.
 - **Brevo contact upsert runs before the email send, and its failure is non-fatal.** Order matters because the attribute must exist at the moment of list join. Non-fatal because the access link email is what the visitor is actually waiting on: a contacts API hiccup should cost them the drip sequence, not their recipes. Failures are `console.error`'d, so check Vercel function logs if contacts stop appearing.
 - **Reply-to is a separate address from the sender.** Sender stays `darsh@mail.darshmode.com` (a Brevo sending subdomain, not a real inbox). The new email copy explicitly asks people to hit reply, so replies are routed to `darsh@darshmode.com`. Darsh picked this address when asked.
 - **`Header` gained an optional `showBookButton` prop (default `true`).** `/booked` passes `false`. Default keeps every existing call site (only the homepage) unchanged.
@@ -73,7 +82,7 @@ darshmo/
 │   │   ├── layout.tsx               # root layout, mounts <Analytics />
 │   │   ├── page.tsx                 # homepage, component order below
 │   │   ├── book/page.tsx            # Tally application form, redirects to /schedule
-│   │   ├── schedule/page.tsx        # Calendly inline widget
+│   │   ├── schedule/page.tsx        # Calendly inline widget, redirects to /booked on event_scheduled
 │   │   ├── booked/page.tsx          # post-booking page, noindex, header without CTA
 │   │   ├── recipes/
 │   │   │   ├── page.tsx             # server component, SEO metadata only
@@ -98,6 +107,7 @@ darshmo/
 │   │   ├── SocialProofShot.tsx      # single WhatsApp screenshot card
 │   │   └── recipes/                 # RecipeCard, RecipeDetail, UnlockGate, RecipesHeader, etc.
 │   └── lib/
+│       ├── tracking.ts              # carries utm_*/gclid/fbclid through the booking funnel
 │       ├── whatsappShots.ts         # whatsappShotsBatch1 / whatsappShotsBatch2 data
 │       ├── recipes/                 # data.ts, scaling.ts, sharedComponents.ts, types.ts
 │       └── unlock/
@@ -124,11 +134,14 @@ Header -> Hero -> Empathy -> WhoForNotFor -> Testimonials (Riley/Francy videos) 
 ## Open TODOs / known issues
 
 **Blocking, this session's work is not finished until these happen:**
-- **`/booked` is not linked from anywhere.** Darsh needs to set the Calendly event's confirmation redirect to `https://www.darshmode.com/booked`, otherwise the page and video are unreachable.
 - **Web Analytics has to be enabled in the Vercel dashboard** (Project -> Analytics -> Enable). The component is mounted but inert until then, and it never reports from localhost.
 - **Confirm `darsh@darshmode.com` actually receives mail.** The new email copy asks people to hit reply. If that mailbox does not exist, replies bounce silently.
 - ~~Confirm the Brevo attribute is named exactly `ACCESS_LINK` and typed as text.~~ Done, verified against the live Brevo API on 2026-10-08.
 - **4 pre-existing list-6 contacts will never get an `ACCESS_LINK`, by decision.** Darsh chose on 2026-10-08 to skip the backfill rather than reconcile the secret or re-email them. Practical consequence: those 4 (including 2 who signed up on 7th and 8th October and are mid-automation) will receive automation emails with a blank link unless they re-submit their email through the site, which regenerates everything correctly. The 5th, Darsh's own address, was populated as a side effect of the post-deploy verification signup. Everyone who signs up from this deploy onward is unaffected. If this is revisited, see the `UNLOCK_SECRET` note under Useful references first: a local backfill is impossible until the Vercel secret is copied into `.env.local`.
+
+- **The `calendly.event_scheduled` redirect has not been exercised by a real booking.** The code is deployed and verified present in the live JS chunk, and the pure helpers are unit tested, but the actual postMessage path was never driven in a real browser from this session (no browser automation available). Test it either by making a real booking and cancelling it, or from devtools on `/schedule` with:
+  `window.dispatchEvent(new MessageEvent("message", { data: { event: "calendly.event_scheduled" }, origin: "https://calendly.com" }))`
+  Note that a plain `window.postMessage(...)` will NOT work as a test: it carries your own origin, which the handler correctly rejects. The `MessageEvent` constructor is what lets you set the origin.
 
 **Pre-existing, lower priority:**
 - `public/videos/hero.mp4` (old V2) is unused dead weight, kept deliberately as a rollback option. Safe to delete once V3 is confirmed good live.
@@ -144,7 +157,7 @@ Header -> Hero -> Empathy -> WhoForNotFor -> Testimonials (Riley/Francy videos) 
 - Brevo dashboard: SMTP & API > API Keys (for `BREVO_API_KEY`), Contacts (list ID 6 is "Recipe Lead Magnet", attribute `ACCESS_LINK` feeds the 10-day automation).
 - Vercel dashboard: env vars (`BREVO_API_KEY`, `UNLOCK_SECRET`, `NEXT_PUBLIC_SITE_URL`) are set there directly by Darsh, not synced from `.env.local`. Secrets live only in `.env.local` (gitignored) and Vercel, never in this file or the repo.
 - **`UNLOCK_SECRET` in Vercel is NOT the same value as the one in `.env.local`.** Verified 2026-10-08: a token generated with the local secret validates against a local `next start` server but is rejected by `https://www.darshmode.com/api/unlock/verify`. Production is internally consistent (it signs and verifies with its own secret, so live signups and their emailed links work fine), but access links cannot be regenerated offline, and a link issued in local dev will not open the live site. Reconciling the two means copying the Vercel value into `.env.local`, never the reverse: overwriting Vercel's secret would invalidate every access link already emailed to every subscriber.
-- Booking stack: Tally form `81BMPo` at `/book`, Calendly `calendly.com/darsh-jkyh/30min` at `/schedule`, then `/booked`.
+- Booking stack: Tally form `81BMPo` at `/book` -> Calendly `calendly.com/darsh-jkyh/30min` inline at `/schedule` -> `/booked` on `calendly.event_scheduled`. Calendly is on the free plan, which is why the redirect is done in code rather than in Calendly's settings.
 - Post-booking video source: `~/Desktop/Desktop/COACHING BUSINESS/AI_ CLAUDE/WEBSITE_AI/VIDEOS/POST SIGN UP VIDEO_MODE.mp4`.
 - Hero video sources: same `VIDEOS/` folder (`MODE_COACHING_V2.mp4`, `MODE_COACHING_V3.mp4`).
 - Source recipe photos: `~/Desktop/Desktop/COACHING BUSINESS/AI_ CLAUDE/WEBSITE_AI/LEAD MAGNET/RECIPE PICTURES/`.
