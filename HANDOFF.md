@@ -4,63 +4,60 @@ _Last updated: 2026-10-08_
 
 ## What this is
 
-`darshmo` is a Next.js 14 (App Router) site for **MODE**, a 1-on-1 fitness coaching business run by Darsh. It has the main marketing homepage (`src/app/page.tsx`), a booking flow (`/book` application form, `/schedule` Calendly picker, `/booked` post-booking confirmation), and `/recipes`: an interactive recipe lead magnet that replaced an old, poorly-converting Instagram bio link.
+`darshmo` is a Next.js 14 (App Router) site for **MODE**, a 1-on-1 fitness coaching business run by Darsh. It does two jobs: convert visitors into booked discovery calls, and capture emails through `/recipes`, an interactive high-protein Indian recipe lead magnet that replaced an old, poorly-converting Instagram bio link.
 
-Deployed on Vercel (darshmode.com), auto-deploys from `origin/main` (`github.com/darshmode/darshmo`).
+Deployed on Vercel at darshmode.com (canonical host is `www.darshmode.com`; the bare domain 301s to it, preserving query strings). Auto-deploys from `origin/main` (`github.com/darshmode/darshmo`), roughly 60 seconds per deploy.
 
 ## Current state
 
-**The homepage and `/recipes` are live and have been for a while.** Everything from earlier sessions is committed and pushed.
+**Everything described here is committed, pushed, and live.** Working tree is clean apart from two pre-existing untracked files (`.agents/`, `AGENTS.md`, see Open TODOs). `npx tsc --noEmit` and `npm run build` both pass.
 
-**This session's work (4 changes) is complete, builds clean, and is committed and pushed to `main`.** `npx tsc --noEmit` and `npm run build` both pass, and all routes were smoke-tested against a real production server (`next start`). See "Open TODOs" for what Darsh still has to do outside the codebase.
+### Routes
 
-### 1. Vercel Web Analytics (new)
-`@vercel/analytics@2.0.1` added as a dependency, `<Analytics />` imported from `@vercel/analytics/next` and mounted in `<body>` in `src/app/layout.tsx`. Code side is done; Web Analytics still has to be switched on in the Vercel dashboard before any data flows.
+| Route | What it is | State |
+| --- | --- | --- |
+| `/` | Marketing homepage | Live |
+| `/book` | Tally application form, routes to `/schedule` on submit | Live |
+| `/schedule` | Calendly inline embed, routes to `/booked` on booking | Live, redirect not browser-tested |
+| `/booked` | Post-booking page with a 9:16 video, `noindex` | Live |
+| `/recipes` | Lead magnet, email-gated | Live, verified end to end |
+| `/api/unlock`, `/api/unlock/resend`, `/api/unlock/verify` | Unlock flow | Live, verified end to end |
 
-### 2. Brevo `ACCESS_LINK` attribute (fixed, verified in production)
-`src/lib/unlock/email.ts` now writes each signup's personal access link to the Brevo contact attribute `ACCESS_LINK` (text), in the same `createContact` call that adds them to list 6 ("Recipe Lead Magnet"), with `updateEnabled: true`.
+### Booking funnel
 
-Two genuine bugs were found and fixed here:
-- The contact upsert previously sent **no attributes at all**, so `ACCESS_LINK` was never populated. Brevo's 10-day automation needs it.
-- The upsert previously ran **after** the transactional email send. It now runs first, so the attribute can never be written after the automation has already been triggered by the list join.
+Two steps, deliberately: `/book` qualifies via a Tally application, then `/schedule` takes the booking via Calendly's official inline embed. Nothing anywhere on the site links out to calendly.com. All four CTA components (`CtaButton`, `Header`, `RecipesCta`, `RecipesHeader`) point at `/book`.
 
-Both signup entry points (the `/recipes` `UnlockGate` and the homepage `LeadMagnetPopup`) share one code path, verified: `useUnlock().submitEmail` -> `/api/unlock` (or `/api/unlock/resend`) -> `issueAndSendAccess()` -> `sendAccessEmail()`. Fixing `email.ts` covers both.
+Calendly is on the **free plan**, which has no redirect-after-booking setting, so `/schedule` listens for the embed's `calendly.event_scheduled` `postMessage` and navigates to `/booked` itself. Guarded by an exact origin check and a one-shot ref.
 
-Verified live on 2026-10-08 after deploy: a real signup through `https://www.darshmode.com/api/unlock` returned `emailSent: true`, the Brevo contact came back on list 6 with a populated `ACCESS_LINK`, and the exact link stored in that attribute validates against the live `/api/unlock/verify` endpoint. The whole chain works in production.
+Tracking params survive the whole funnel via `src/lib/tracking.ts`: `/book` forwards the query string to `/schedule`, `/schedule` forwards it to `/booked`, and `utm_*` values are additionally mapped onto Calendly's embed API so bookings are attributed inside Calendly. The pure helpers were unit tested ad hoc (11 cases, all passing); not committed as a suite because the repo has no test runner.
 
-### 3. Welcome email copy (replaced)
-`src/lib/unlock/emailTemplate.ts` no longer holds placeholder copy. It now has Darsh's real wording: subject "Your recipes are in", hidden preheader "Plus why I bothered making them", short plain paragraphs, "Open my recipes" linking to the recipient's access link, and a P.S. with "Book a free call" linking to `https://www.darshmode.com/book`. Both `bodyHtml` and `bodyText` are kept in sync.
+### Recipes lead magnet and email
 
-Reply-to is now set explicitly to `darsh@darshmode.com` (see Key decisions). Trigger, sender and access-link logic are unchanged.
+Email-gated, no database. A token is the normalized email plus an HMAC keyed by `UNLOCK_SECRET`, so the same email always regenerates the same token and "send my link again" needs nothing stored. Both entry points (the `/recipes` `UnlockGate` and the homepage `LeadMagnetPopup`) share one path: `useUnlock().submitEmail` -> `/api/unlock` (or `/api/unlock/resend`) -> `issueAndSendAccess()` -> `sendAccessEmail()`.
 
-### 4. `/booked` page (new)
-Post-booking confirmation page at `src/app/booked/page.tsx` with a 9:16 video player. Headline "You're booked in.", subline "Watch this quick video before our call.", video, then "Need to change the time? Use the reschedule link in your confirmation email." Site header is present but its "Book a Call" button is suppressed. Page is `noindex, nofollow` (verified in the built HTML).
+`sendAccessEmail()` upserts the visitor as a Brevo contact on list 6 ("Recipe Lead Magnet") with their personal access link on the `ACCESS_LINK` attribute, in the same `createContact` call, then sends the welcome email. The welcome email copy is real and final (no longer placeholder), with replies routed to `darsh@darshmode.com`.
 
-Source video was `POST SIGN UP VIDEO_MODE.mp4`, HEVC 1080x1920 30fps, 76MB. Transcoded to H.264 and published at `public/videos/post-sign-up-video.mp4`, **18MB**, still full 1080x1920, with `+faststart`. First frame extracted to `public/videos/posters/post-sign-up-video.jpg` as the poster. Original source file untouched.
+**Verified live on 2026-10-08:** a real signup through `https://www.darshmode.com/api/unlock` returned `emailSent: true`, the Brevo contact came back on list 6 with a populated `ACCESS_LINK`, and the exact link stored in that attribute validates against the live `/api/unlock/verify`. The `ACCESS_LINK` attribute exists in Brevo and is typed `text`.
 
-### 5. Auto-redirect to `/booked` after a Calendly booking (new)
-Calendly's free plan has no redirect-after-booking setting, so `/schedule` listens for the inline embed's `calendly.event_scheduled` `postMessage` event and routes to `/booked` itself. Guarded by an exact origin check (`https://calendly.com`) and a one-shot ref, so a repeated event cannot navigate twice.
+### Analytics
 
-Tracking params now survive the whole funnel. Every client-side hop was silently dropping the query string, so `/book` forwards it to `/schedule` and `/schedule` forwards it to `/booked`, via `src/lib/tracking.ts`. The entire query string is carried rather than a key allowlist, so `utm_*`, `gclid`, `fbclid` and anything added later all work with no code change. `utm_*` values are additionally mapped onto Calendly's embed API so bookings are attributed inside Calendly too. `tracking.ts` has unit-tested pure helpers (11 cases, run ad hoc, not committed as a suite since the repo has no test runner).
-
-The Calendly embed also got more height on mobile (`h-[1050px] sm:h-[700px]`), where it lays out vertically and 700px forced scrolling inside the iframe.
+`@vercel/analytics` is installed and `<Analytics />` is mounted in the root layout. **It is inert until Web Analytics is switched on in the Vercel dashboard,** and it never reports from localhost.
 
 ## Key decisions
 
-- **The Calendly redirect listener lives on `/schedule`, not `/book`.** The brief asked for Calendly to be embedded inline on `/book`, but that premise was out of date: `/book` is the Tally application form and `/schedule` already had the official inline Calendly embed, with no page anywhere linking out to calendly.com. Moving Calendly onto `/book` would have deleted the application/qualification step, so the listener was added where Calendly actually is and the two-step funnel was left intact. Flagged to Darsh on 2026-10-08. If he ever does want one-step booking, that is a deliberate funnel change, not a bug fix.
-- **The whole query string is forwarded through the funnel, not an allowlist of keys.** Cheaper to reason about and it cannot silently drop a tracking param someone adds later.
-- **Brevo contact upsert runs before the email send, and its failure is non-fatal.** Order matters because the attribute must exist at the moment of list join. Non-fatal because the access link email is what the visitor is actually waiting on: a contacts API hiccup should cost them the drip sequence, not their recipes. Failures are `console.error`'d, so check Vercel function logs if contacts stop appearing.
-- **Reply-to is a separate address from the sender.** Sender stays `darsh@mail.darshmode.com` (a Brevo sending subdomain, not a real inbox). The new email copy explicitly asks people to hit reply, so replies are routed to `darsh@darshmode.com`. Darsh picked this address when asked.
-- **`Header` gained an optional `showBookButton` prop (default `true`).** `/booked` passes `false`. Default keeps every existing call site (only the homepage) unchanged.
-- **`Header`'s in-page anchors are now path-aware.** `#testimonials` etc. resolve to `/#testimonials` when `usePathname()` is not `/`, because those links were dead on any page other than the homepage. Homepage behaviour is byte-identical. This was a small scope extension beyond the brief, made because `/booked` is the first page to mount `Header` off the homepage.
-- **The `/booked` video does not autoplay, by design.** Browsers only permit autoplay when muted, and this clip is meant to be heard. A poster frame plus an explicit orange play button (`BookedVideo.tsx`) makes the first play a real user gesture, so it starts with sound. Native `controls` are still on.
-- **Video encoded at CRF 27, preset slow, full 1080x1920.** CRF 24 came out at 29MB, over the ~20MB budget. CRF 27 lands at 18MB with the first frame verified visually sharp. Resolution was deliberately kept at 1080 wide rather than downscaled, so it stays crisp on high-DPI phones.
-- **`CtaButton`'s default variant is amber, not white.** No call site anywhere wants the old white default. Still reachable via `variant="default"`, currently unused.
-- **Mobile comparison table is a static PNG, not live markup** (`public/comparison-table.png`). Chosen because stacked cards lost the side-by-side comparison. Knowingly accepted as not selectable text and not screen-reader accessible in that view, with `alt` text standing in.
-- **`ffmpeg` is not a project dependency.** It is used ephemerally via the `ffmpeg-static` / `ffprobe-static` npm packages installed into a scratchpad directory outside the repo, purely as a one-off transcoding and frame-extraction tool.
-- **`LeadMagnetPopup` deliberately does not duplicate unlock logic.** Same `useUnlock()` hook, same `/api/unlock` endpoint, same `mode_recipes_unlock` localStorage key as the `/recipes` gate, so unlocking via the popup and then navigating to `/recipes` shows everything already unlocked.
-- **Stateless HMAC unlock tokens, no database.** A token is the normalized email, base64url-encoded, plus an HMAC keyed by `UNLOCK_SECRET`. The same email always regenerates the same token, which is what makes "send my link again" work with nothing stored. See `src/lib/unlock/token.ts`.
-- **Chrome extension screenshot/CDP tooling hangs when the Hero's autoplay video is playing in the tab.** Confirmed an automation-environment quirk, not a site bug, via an A/B test against the untouched original `hero.mp4`. Workaround: `document.querySelector('video').pause()` before screenshotting any page with the Hero mounted.
+- **`UNLOCK_SECRET` in Vercel is NOT the same value as the one in `.env.local`.** Verified 2026-10-08: a token generated with the local secret validates against a local `next start` server but is rejected by the live site. Production is internally consistent, so live signups and their emailed links work fine, but access links cannot be regenerated offline and a link issued in local dev will not open the live site. If this is ever reconciled, copy **Vercel's value into `.env.local`, never the reverse**: overwriting Vercel's secret would invalidate every access link already emailed to every subscriber.
+- **The Calendly redirect listener lives on `/schedule`, not `/book`.** A brief asked for Calendly to be embedded inline on `/book`, but that premise was out of date: `/book` is the Tally application form and `/schedule` already had the official inline embed. Moving Calendly onto `/book` would have deleted the qualification step, so the listener went where Calendly actually is and the two-step funnel was left intact. Flagged to Darsh. One-step booking is a deliberate funnel change if he ever wants it, not a bug fix.
+- **The whole query string is forwarded through the funnel, not an allowlist of keys.** Cheaper to reason about and it cannot silently drop a tracking param added later.
+- **Brevo contact upsert runs before the email send, and its failure is non-fatal.** Order matters because `ACCESS_LINK` must exist at the moment of list join, otherwise the first automated email can go out with a blank link. Non-fatal because the access link email is what the visitor is waiting on: a contacts API hiccup should cost them the drip sequence, not their recipes. Failures are `console.error`'d, so check Vercel function logs if contacts stop appearing.
+- **Reply-to is a separate address from the sender.** Sender is `darsh@mail.darshmode.com`, a Brevo sending subdomain and not a real inbox. The email copy explicitly asks people to hit reply, so replies go to `darsh@darshmode.com`.
+- **The `/booked` video does not autoplay, by design.** Browsers only permit autoplay when muted, and the clip is meant to be heard. A poster frame plus an explicit play button makes the first play a real user gesture, so it starts with sound. Native `controls` stay on.
+- **The post-booking video is CRF 27, preset slow, full 1080x1920, 18MB.** CRF 24 came out at 29MB, over the ~20MB budget. Resolution was kept at 1080 wide rather than downscaled so it stays crisp on high-DPI phones. The source was HEVC, which is Safari-only in browsers, hence the H.264 transcode.
+- **`Header` takes an optional `showBookButton` prop (default `true`)** so `/booked` can suppress the CTA, and its in-page anchors resolve against the homepage (`/#results`) when `usePathname()` is not `/`, because those links were dead on any other page. Homepage behaviour is unchanged.
+- **`CtaButton`'s default variant is amber, not white.** No call site wants the old white default. Still reachable via `variant="default"`, currently unused.
+- **Mobile comparison table is a static PNG, not live markup** (`public/comparison-table.png`). Stacked cards lost the side-by-side comparison. Knowingly accepted as not selectable text and not screen-reader accessible in that view, with `alt` text standing in.
+- **`ffmpeg` is not a project dependency.** Used ephemerally via the `ffmpeg-static` / `ffprobe-static` npm packages installed into a scratchpad directory outside the repo, purely as a one-off transcoding and frame-extraction tool.
+- **`LeadMagnetPopup` deliberately does not duplicate unlock logic.** Same hook, same endpoint, same `mode_recipes_unlock` localStorage key as the `/recipes` gate, so unlocking via the popup and then navigating to `/recipes` shows everything already unlocked.
+- **Chrome extension screenshot/CDP tooling hangs when the Hero's autoplay video is playing in the tab.** Confirmed an automation-environment quirk, not a site bug, via an A/B test against the original `hero.mp4`. Workaround: `document.querySelector('video').pause()` before screenshotting any page with the Hero mounted.
 
 ## Project structure
 
@@ -81,8 +78,8 @@ darshmo/
 │   ├── app/
 │   │   ├── layout.tsx               # root layout, mounts <Analytics />
 │   │   ├── page.tsx                 # homepage, component order below
-│   │   ├── book/page.tsx            # Tally application form, redirects to /schedule
-│   │   ├── schedule/page.tsx        # Calendly inline widget, redirects to /booked on event_scheduled
+│   │   ├── book/page.tsx            # Tally application form, forwards query to /schedule
+│   │   ├── schedule/page.tsx        # Calendly inline embed, redirects to /booked on event_scheduled
 │   │   ├── booked/page.tsx          # post-booking page, noindex, header without CTA
 │   │   ├── recipes/
 │   │   │   ├── page.tsx             # server component, SEO metadata only
@@ -112,16 +109,15 @@ darshmo/
 │       ├── recipes/                 # data.ts, scaling.ts, sharedComponents.ts, types.ts
 │       └── unlock/
 │           ├── email.ts             # the only Brevo-specific file: contact upsert + send
-│           ├── emailTemplate.ts     # welcome email subject + copy, real as of this session
+│           ├── emailTemplate.ts     # welcome email subject + copy, final
 │           ├── issueAndSend.ts      # wraps token creation + send, swallows send errors
 │           ├── token.ts             # stateless HMAC access tokens
 │           └── useUnlock.ts         # shared by /recipes gate and LeadMagnetPopup
 └── public/
-    ├── videos/
-    │   ├── hero-v3.mp4              # live hero video (H.264, transcoded from HEVC source)
-    │   ├── hero.mp4                 # old V2, unused, kept as rollback backup
-    │   ├── post-sign-up-video.mp4   # 18MB H.264, used by /booked
-    │   └── posters/                 # extracted poster frames, incl. post-sign-up-video.jpg
+    ├── videos/                      # hero-v3.mp4 (live hero), hero.mp4 (old, unused),
+    │   │                            # post-sign-up-video.mp4 (18MB, /booked),
+    │   │                            # testimonial + pull-up clips (riley is 49MB)
+    │   └── posters/                 # extracted poster frames for every video
     ├── comparison-table.png         # static mobile comparison table image, see Key decisions
     ├── gallery/                     # 14 before/after photos, split into two grids
     ├── social-proof/                # 9 WhatsApp screenshots, split into two batches
@@ -133,38 +129,38 @@ Header -> Hero -> Empathy -> WhoForNotFor -> Testimonials (Riley/Francy videos) 
 
 ## Open TODOs / known issues
 
-**Blocking, this session's work is not finished until these happen:**
-- **Web Analytics has to be enabled in the Vercel dashboard** (Project -> Analytics -> Enable). The component is mounted but inert until then, and it never reports from localhost.
-- **Confirm `darsh@darshmode.com` actually receives mail.** The new email copy asks people to hit reply. If that mailbox does not exist, replies bounce silently.
-- ~~Confirm the Brevo attribute is named exactly `ACCESS_LINK` and typed as text.~~ Done, verified against the live Brevo API on 2026-10-08.
-- **4 pre-existing list-6 contacts will never get an `ACCESS_LINK`, by decision.** Darsh chose on 2026-10-08 to skip the backfill rather than reconcile the secret or re-email them. Practical consequence: those 4 (including 2 who signed up on 7th and 8th October and are mid-automation) will receive automation emails with a blank link unless they re-submit their email through the site, which regenerates everything correctly. The 5th, Darsh's own address, was populated as a side effect of the post-deploy verification signup. Everyone who signs up from this deploy onward is unaffected. If this is revisited, see the `UNLOCK_SECRET` note under Useful references first: a local backfill is impossible until the Vercel secret is copied into `.env.local`.
+**Darsh's, outside the codebase:**
+- **Enable Web Analytics in the Vercel dashboard** (Project -> Analytics -> Enable). The component is deployed but inert until then.
+- **Confirm `darsh@darshmode.com` actually receives mail.** The welcome email asks people to hit reply. If that mailbox does not exist, replies bounce silently. A verification signup on 2026-10-08 sent the real email to Darsh's Hotmail, so the copy and reply-to can be checked there.
+- **Look at `/booked` on a real phone.** Markup and assets are verified, but the 9:16 framing has never been seen rendered.
+- **Instagram bio link swap** to `/recipes` is still a manual action.
 
-- **The `calendly.event_scheduled` redirect has not been exercised by a real booking.** The code is deployed and verified present in the live JS chunk, and the pure helpers are unit tested, but the actual postMessage path was never driven in a real browser from this session (no browser automation available). Test it either by making a real booking and cancelling it, or from devtools on `/schedule` with:
+**In the code:**
+- **The `calendly.event_scheduled` redirect has not been exercised by a real booking.** The code is deployed and confirmed present in the live JS chunk (`/_next/static/chunks/app/schedule/page-*.js`), and the pure helpers are unit tested, but the postMessage path was never driven in a real browser (no browser automation available in that session). Test by making a real booking and cancelling it, or from devtools on `/schedule` with:
   `window.dispatchEvent(new MessageEvent("message", { data: { event: "calendly.event_scheduled" }, origin: "https://calendly.com" }))`
-  Note that a plain `window.postMessage(...)` will NOT work as a test: it carries your own origin, which the handler correctly rejects. The `MessageEvent` constructor is what lets you set the origin.
-
-**Pre-existing, lower priority:**
+  A plain `window.postMessage(...)` will NOT work as a test: it carries your own origin, which the handler correctly rejects. The `MessageEvent` constructor is what lets you set the origin. Failure mode if something is wrong is benign: no redirect, and people stay on Calendly's confirmation screen.
+- **4 pre-existing list-6 contacts have a blank `ACCESS_LINK`, by decision.** Darsh chose on 2026-10-08 to skip the backfill rather than reconcile the secret or re-email them. Those 4 (including 2 who signed up on 7th and 8th October and are mid-automation) will get automation emails with a blank link unless they re-submit their email through the site, which regenerates everything correctly. The 5th, Darsh's own address, was populated by the verification signup. Everyone signing up from now on is unaffected. A local backfill is impossible until the Vercel secret is copied into `.env.local`, see Key decisions.
 - `public/videos/hero.mp4` (old V2) is unused dead weight, kept deliberately as a rollback option. Safe to delete once V3 is confirmed good live.
 - `public/comparison-table.png` goes stale if the table's data, styling or copy changes without regenerating the image. To regenerate: load the homepage at desktop width, pause the hero video, get the live `<table>` element's `getBoundingClientRect()`, then use the Chrome extension `zoom` action on that region with `save_to_disk: true`.
-- The hero video has never been independently confirmed visually autoplaying in a real browser, only confirmed valid and correctly served. Worth a manual check on the live site.
-- `AGENTS.md` is a byte-identical untracked copy of `CLAUDE.md`, and `.agents/skills/save/SKILL.md` is an older variant of `.claude/skills/save/SKILL.md`. Both are untracked leftovers. Harmless, but they will drift if only one copy is ever edited.
-- Instagram bio link swap to `/recipes` is still a manual action for Darsh.
+- The hero video has never been independently confirmed visually autoplaying in a real browser, only confirmed valid and correctly served.
+- `AGENTS.md` is a byte-identical untracked copy of `CLAUDE.md`, and `.agents/skills/save/SKILL.md` is an older variant of `.claude/skills/save/SKILL.md`. Harmless, but they will drift if only one copy is ever edited.
+
+**Environment gotchas:**
 - Dev server: run via `.claude/run-dev.sh`, or put `/Users/darsh/.nvm/versions/node/v24.20.0/bin` first on `PATH`. Do not run `npm run build` against the same `.next` directory while `npm run dev` is up, it corrupts the shared cache (fix: `rm -rf .next` and restart).
 - If a recipe image is ever swapped or recropped, clear `.next/cache/images` and restart the dev server, otherwise Next's server-side image optimizer keeps serving the old crop and a browser hard-refresh will not help.
 
 ## Useful references
 
-- Brevo dashboard: SMTP & API > API Keys (for `BREVO_API_KEY`), Contacts (list ID 6 is "Recipe Lead Magnet", attribute `ACCESS_LINK` feeds the 10-day automation).
+- Brevo dashboard: SMTP & API > API Keys (for `BREVO_API_KEY`), Contacts (list ID 6 is "Recipe Lead Magnet", attribute `ACCESS_LINK` feeds a 10-day automation).
 - Vercel dashboard: env vars (`BREVO_API_KEY`, `UNLOCK_SECRET`, `NEXT_PUBLIC_SITE_URL`) are set there directly by Darsh, not synced from `.env.local`. Secrets live only in `.env.local` (gitignored) and Vercel, never in this file or the repo.
-- **`UNLOCK_SECRET` in Vercel is NOT the same value as the one in `.env.local`.** Verified 2026-10-08: a token generated with the local secret validates against a local `next start` server but is rejected by `https://www.darshmode.com/api/unlock/verify`. Production is internally consistent (it signs and verifies with its own secret, so live signups and their emailed links work fine), but access links cannot be regenerated offline, and a link issued in local dev will not open the live site. Reconciling the two means copying the Vercel value into `.env.local`, never the reverse: overwriting Vercel's secret would invalidate every access link already emailed to every subscriber.
-- Booking stack: Tally form `81BMPo` at `/book` -> Calendly `calendly.com/darsh-jkyh/30min` inline at `/schedule` -> `/booked` on `calendly.event_scheduled`. Calendly is on the free plan, which is why the redirect is done in code rather than in Calendly's settings.
+- Booking stack: Tally form `81BMPo` at `/book` -> Calendly `calendly.com/darsh-jkyh/30min` inline at `/schedule` -> `/booked` on `calendly.event_scheduled`. Calendly is on the free plan, which is why the redirect is done in code.
 - Post-booking video source: `~/Desktop/Desktop/COACHING BUSINESS/AI_ CLAUDE/WEBSITE_AI/VIDEOS/POST SIGN UP VIDEO_MODE.mp4`.
 - Hero video sources: same `VIDEOS/` folder (`MODE_COACHING_V2.mp4`, `MODE_COACHING_V3.mp4`).
 - Source recipe photos: `~/Desktop/Desktop/COACHING BUSINESS/AI_ CLAUDE/WEBSITE_AI/LEAD MAGNET/RECIPE PICTURES/`.
 - Before/after photo originals: `~/Desktop/Desktop/COACHING BUSINESS/AI_ CLAUDE/WEBSITE_AI/Before and After Transformations - ready/`.
 - Live site: darshmode.com. Instagram: @darshmode. Brand name in copy is "MODE", not "Darshmode".
-- No em dashes, ever: hard rule from `CLAUDE.md`, grep-checked clean across everything touched this session.
-- Node 24 via `nvm` (`~/.nvm`), no system Node, no Homebrew.
+- **No em dashes, ever**: hard rule from `CLAUDE.md`. Rewrite with a comma, period, colon, semicolon or parentheses instead.
+- Node 24 via `nvm` (`~/.nvm`), no system Node, no Homebrew. No test runner in the repo.
 
 ## How to resume
 
