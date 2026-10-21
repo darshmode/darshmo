@@ -1,6 +1,6 @@
 # Project Handoff
 
-_Last updated: 2026-10-08_
+_Last updated: 2026-10-21_
 
 ## What this is
 
@@ -22,6 +22,8 @@ Deployed on Vercel at darshmode.com (canonical host is `www.darshmode.com`; the 
 | `/booked` | Post-booking page with a 9:16 video, `noindex` | Live |
 | `/recipes` | Lead magnet, email-gated | Live, verified end to end |
 | `/api/unlock`, `/api/unlock/resend`, `/api/unlock/verify` | Unlock flow | Live, verified end to end |
+| `/spine` | 6 minute spine routine lead magnet, email gate unlocks a YouTube embed | Live |
+| `/api/spine` | Spine sign up endpoint, adds the contact to Brevo list 7 | Live |
 
 ### Booking funnel
 
@@ -38,6 +40,18 @@ Email-gated, no database. A token is the normalized email plus an HMAC keyed by 
 `sendAccessEmail()` upserts the visitor as a Brevo contact on list 6 ("Recipe Lead Magnet") with their personal access link on the `ACCESS_LINK` attribute, in the same `createContact` call, then sends the welcome email. The welcome email copy is real and final (no longer placeholder), with replies routed to `darsh@darshmode.com`.
 
 **Verified live on 2026-10-08:** a real signup through `https://www.darshmode.com/api/unlock` returned `emailSent: true`, the Brevo contact came back on list 6 with a populated `ACCESS_LINK`, and the exact link stored in that attribute validates against the live `/api/unlock/verify`. The `ACCESS_LINK` attribute exists in Brevo and is typed `text`.
+
+### Spine lead magnet
+
+Traffic comes from Instagram: people comment SPINE on any post and ManyChat DMs them a link to `darshmode.com/spine?utm_source=instagram&utm_medium=dm&utm_campaign=spine`.
+
+The page (`SpinePageClient.tsx`) asks for an email. On submit it calls `/api/spine`, stores `mode_spine_unlock` in localStorage, and shows the YouTube video (`_gs15z1lMTE`, via `youtube-nocookie.com`). Returning visitors on the same device skip straight to the video.
+
+`/api/spine` calls `subscribeToSpineList()`, which upserts the contact onto Brevo list 7 ("Spine Lead Magnet") with `updateEnabled: true`, so someone already on the recipes list is added rather than rejected as a duplicate. It reuses `BREVO_API_KEY`; no new env vars.
+
+**The website sends NO email for this.** Joining list 7 triggers the Brevo automation "Spine sequence (5 emails)": email 1 (the video link) immediately, then one every 2 days. A Brevo failure is `console.error`'d but never blocks the video: the endpoint still returns `ok: true` (with `subscribed: false`).
+
+**Verified live on 2026-10-21:** a real sign up unlocked the video, and the contact landed on list 7 and entered the automation.
 
 ### Analytics
 
@@ -84,7 +98,12 @@ darshmo/
 │   │   ├── recipes/
 │   │   │   ├── page.tsx             # server component, SEO metadata only
 │   │   │   └── RecipesPageClient.tsx
-│   │   └── api/unlock/              # route.ts, resend/route.ts, verify/route.ts
+│   │   ├── spine/
+│   │   │   ├── page.tsx             # server component, metadata only
+│   │   │   └── SpinePageClient.tsx  # email gate, unlocks YouTube embed _gs15z1lMTE
+│   │   └── api/
+│   │       ├── unlock/              # route.ts, resend/route.ts, verify/route.ts
+│   │       └── spine/route.ts       # POST, adds contact to Brevo list 7, never blocks the video
 │   ├── components/
 │   │   ├── Header.tsx               # sticky nav, mobile bottom-sheet menu, showBookButton prop
 │   │   ├── Hero.tsx                 # autoplay video, mute toggle, amber CTA
@@ -107,8 +126,10 @@ darshmo/
 │       ├── tracking.ts              # carries utm_*/gclid/fbclid through the booking funnel
 │       ├── whatsappShots.ts         # whatsappShotsBatch1 / whatsappShotsBatch2 data
 │       ├── recipes/                 # data.ts, scaling.ts, sharedComponents.ts, types.ts
+│       ├── spine/
+│       │   └── subscribe.ts         # Brevo contact upsert onto list 7, no email sent
 │       └── unlock/
-│           ├── email.ts             # the only Brevo-specific file: contact upsert + send
+│           ├── email.ts             # Brevo contact upsert + send for recipes
 │           ├── emailTemplate.ts     # welcome email subject + copy, final
 │           ├── issueAndSend.ts      # wraps token creation + send, swallows send errors
 │           ├── token.ts             # stateless HMAC access tokens
