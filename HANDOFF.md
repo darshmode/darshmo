@@ -173,6 +173,8 @@ Header -> Hero -> Empathy -> WhoForNotFor -> Testimonials (Riley/Francy videos) 
 ## Useful references
 
 - Brevo dashboard: SMTP & API > API Keys (for `BREVO_API_KEY`), Contacts (list ID 6 is "Recipe Lead Magnet", attribute `ACCESS_LINK` feeds a 10-day automation).
+- Brevo spine setup: list ID 7 is "Spine Lead Magnet", which triggers the automation "Spine sequence (5 emails)". Spine YouTube video ID is `_gs15z1lMTE`.
+- ManyChat (Instagram): the SPINE comment keyword trigger that DMs the `/spine` link with `utm_source=instagram&utm_medium=dm&utm_campaign=spine`.
 - Vercel dashboard: env vars (`BREVO_API_KEY`, `UNLOCK_SECRET`, `NEXT_PUBLIC_SITE_URL`) are set there directly by Darsh, not synced from `.env.local`. Secrets live only in `.env.local` (gitignored) and Vercel, never in this file or the repo.
 - Booking stack: Tally form `81BMPo` at `/book` -> Calendly `calendly.com/darsh-jkyh/30min` inline at `/schedule` -> `/booked` on `calendly.event_scheduled`. Calendly is on the free plan, which is why the redirect is done in code.
 - Post-booking video source: `~/Desktop/Desktop/COACHING BUSINESS/AI_ CLAUDE/WEBSITE_AI/VIDEOS/POST SIGN UP VIDEO_MODE.mp4`.
